@@ -118,3 +118,14 @@ This is the list of the default providers:
 * Nokia
 * FreeGeoIp
 * GeoIpPidgets
+
+
+### References ###
+
+* [W3C Geolocation API](http://www.w3.org/TR/geolocation-API/)
+* [Gears Geolocation API](http://code.google.com/intl/pt-BR/apis/gears/api_geolocation.html)
+* [BONDI Geolocation API](http://www.omtp.org/1.1/apis/geolocation.html)
+* [FreeGeoIP](http://freegeoip.net/static/index.html)
+* [Pidgets GeoIP](http://geoip.pidgets.com/)
+* [geo-location-javascript](http://code.google.com/p/geo-location-javascript/)
+* [Locate Me](https://github.com/rmoriz/locate_me)
