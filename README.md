@@ -39,3 +39,14 @@ Now you can start the library:
 Geo.init();
 ```
 
+This is the default starter, the library will try to find the first available location provider to use. But you can give a provider to the initializer, as a string or object:
+
+
+```javascript
+Geo.init('W3C');
+
+//or
+
+Geo.init(new Geo.LocationProvider.W3C());
+```
+
