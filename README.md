@@ -50,3 +50,11 @@ Geo.init('W3C');
 Geo.init(new Geo.LocationProvider.W3C());
 ```
 
+#### Methods ####
+
+The `Geo` object will provide, besides the `init()`, the following methods:
+
+* `getCurrentPosition(successCallback, errorCallback, options)`
+* `watchPosition(successCallback, errorCallback, options)`
+* `clearWatch(watchId)`
+
