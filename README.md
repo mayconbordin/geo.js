@@ -55,6 +55,7 @@ Geo.init(new Geo.LocationProvider.W3C());
 The `Geo` object will provide, besides the `init()`, the following methods:
 
 * `getCurrentPosition(successCallback, errorCallback, options)`
+	Try to get the current position of the device, passing it to the successCallback. In case of error, error callback is called.
 * `watchPosition(successCallback, errorCallback, options)`
 * `clearWatch(watchId)`
 
