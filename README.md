@@ -4,6 +4,7 @@ Geo.js
 This is a Geolocation library based on [geo-location-javascript](http://code.google.com/p/geo-location-javascript/) and [Locate Me](https://github.com/rmoriz/locate_me).
 
 It supports the same platforms as geo-location-javascript, that are:
+
 * W3C Geolocation API
 * iOS
 * Android
@@ -15,6 +16,7 @@ It supports the same platforms as geo-location-javascript, that are:
 * Mozilla Geode
 
 If none of this options are available, the library will try to retrieve the device's location by IP, using:
+
 * freegeoip.net
 * geoip.pidgets.com
 
