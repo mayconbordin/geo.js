@@ -82,40 +82,45 @@ var Geo = (function() {
 	};
 })();
 
+Geo.Coordinates = Class.extend({
+	latitude: null,
+	longitude: null,
+	altitude: null,
+	accuracy: null,
+	altitudeAccuracy: null,
+	heading: null,
+	speed: null
+});
+
+Geo.Address = Class.extend({
+	street_code: null,
+	street_name: null,
+	city: null,
+	region_code: null,
+	region_name: null,
+	metrocode: null,
+	zipcode: null,
+	country_code: null,
+	country_name: null,
+	continent_code: null,
+	dma_code: null,
+	area_code: null
+});
+
 Geo.Position = Class.extend({
+	coords: null,
+	address: null,
+	timestamp: null,
+	ip: null,
+	
 	init: function(p) {
+		this.coords = new Geo.Coordinates();
+		this.address = new Geo.Address()
+		
 		if (typeof(p) != "undefined") {
 			this.merge(p);
 		}
 	},
-	
-	coords: {
-		latitude: null,
-		longitude: null,
-		altitude: null,
-		accuracy: null,
-		altitudeAccuracy: null,
-		heading: null,
-		speed: null
-	},
-	
-	address: {
-		street_code: null,
-		street_name: null,
-		city: null,
-		region_code: null,
-		region_name: null,
-		metrocode: null,
-		zipcode: null,
-		country_code: null,
-		country_name: null,
-		continent_code: null,
-		dma_code: null,
-		area_code: null
-	},
-	
-	timestamp: (new Date).getTime(),
-	ip: null,
 	
 	/**
 	 * Compares the latitude and longitude attributes of this object with a
@@ -125,6 +130,9 @@ Geo.Position = Class.extend({
 	 * @return {boolean} True if equal, false otherwise
 	 */
 	equals: function(p) {
+		if (p == null)
+			return false;
+			
 		if (p.coords.latitude == this.coords.latitude 
 				&& p.coords.longitude == this.coords.longitude)
 			return true;
@@ -202,6 +210,7 @@ Geo.LocationProvider.Base = Class.extend({
 	
 	// Default implementation of position watcher
 	watchPosition: function(successCallback, errorCallback, options) {
+		var _this = this;
 		this.provider.watchPosition(function(p) {
 			successCallback(_this.parseResult(p));
 		}, errorCallback, options);
@@ -214,10 +223,10 @@ Geo.LocationProvider.Base = Class.extend({
 	// Alternative implementation of position watcher
 	_watchPosition: function(successCallback, errorCallback, options) {
 		var _this = this;
-		this._positionWatcher();
+		this._positionWatcher(successCallback, errorCallback, options);
 		
 		return setInterval(function() {
-			_this._positionWatcher();
+			_this._positionWatcher(successCallback, errorCallback, options);
 		}, 1000);
 	},
 	
@@ -228,9 +237,9 @@ Geo.LocationProvider.Base = Class.extend({
 	_positionWatcher: function(successCallback, errorCallback, options) {
 		var _this = this;
 		this.getCurrentPosition(function(p) {
-			if (!p.equals(_this.lastPos)) {
+			if (!p.equals(_this.lastPos))
 				successCallback(p);
-			}
+			_this.lastPos = p;
 		}, errorCallback, options);
 	}
 });
@@ -323,8 +332,12 @@ Geo.LocationProvider.Mojo = Geo.LocationProvider.Base.extend({
             return {code: 0, message: "Unknown Error: webOS-code" + errorCode};
   	},
   	
-  	watchPosition: this._watchPosition,
-  	clearWatch: this._clearWatch
+  	watchPosition: function(successCallback, errorCallback, options) {
+		this._watchPosition(successCallback, errorCallback, options)
+	},
+  	clearWatch: function(watchId) {
+  		this._clearWatch(watchId);
+  	}
 });
 Geo.LocationProvider.Mojo.available = function() {
 	if (typeof(Mojo) != "undefined" && typeof(Mojo.Service.Request) != "Mojo.Service.Request")
@@ -368,8 +381,12 @@ Geo.LocationProvider.Nokia = Geo.LocationProvider.Base.extend({
 		return new Geo.Position(result);
 	},
 	
-	watchPosition: this._watchPosition,
-  	clearWatch: this._clearWatch
+	watchPosition: function(successCallback, errorCallback, options) {
+		this._watchPosition(successCallback, errorCallback, options)
+	},
+  	clearWatch: function(watchId) {
+  		this._clearWatch(watchId);
+  	}
 });
 Geo.LocationProvider.Nokia.available = function() {
 	if (typeof(device) != "undefined" && typeof(device.getServiceObject) != "undefined")
@@ -381,7 +398,7 @@ Geo.LocationProvider.Nokia.available = function() {
 Geo.LocationProvider.BlackBerry = Geo.LocationProvider.Base.extend({
 	init: function() {
 		this.provider = device.getServiceObject("Service.Location", "ILocation");
-	}
+	},
 });
 Geo.LocationProvider.BlackBerry.available = function() {
 	if (typeof(window.blackberry) != "undefined" && blackberry.location.GPSSupported)
@@ -405,8 +422,12 @@ Geo.LocationProvider.IPBase = Geo.LocationProvider.Base.extend({
 			}
 		);
 	},
-	watchPosition: this._watchPosition,
-  	clearWatch: this._clearWatch
+	watchPosition: function(successCallback, errorCallback, options) {
+		this._watchPosition(successCallback, errorCallback, options)
+	},
+  	clearWatch: function(watchId) {
+  		this._clearWatch(watchId);
+  	}
 });
 
 // FreeGeoIp Provider ==========================================================
