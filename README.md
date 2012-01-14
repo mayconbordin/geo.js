@@ -50,12 +50,70 @@ Geo.init('W3C');
 Geo.init(new Geo.LocationProvider.W3C());
 ```
 
-#### Methods ####
+To get the user location you just do this:
+
+
+```javascript
+Geo.getCurrentPosition(function(p) {
+	console.log(p);
+}, function(e) {
+	console.log("Error " + e.code + ": " + e.message);
+});
+```
+
+### Methods ###
 
 The `Geo` object will provide, besides the `init()`, the following methods:
 
-* `getCurrentPosition(successCallback, errorCallback, options)`
-	Try to get the current position of the device, passing it to the successCallback. In case of error, error callback is called.
-* `watchPosition(successCallback, errorCallback, options)`
-* `clearWatch(watchId)`
+* `getCurrentPosition(successCallback, errorCallback, options)` try to get the current position of the device, passing it to the successCallback. In case of error, errorCcallback is called.
+* `watchPosition(successCallback, errorCallback, options)` the arguments work the same way as before. But this method will call the successCallback every time the device's position changes. It also returns an ID corresponding to the watcher. Some APIs have this method natively implemented, in these cases this library just redirects the call, but if the API has no support, the library uses an own implementation.
+* `clearWatch(watchId)` stops the watcher created with the method above.
 
+The `options` argument, is an object that can have one or more of those attributes:
+
+* `boolean enableHighAccuracy`
+* `long timeout`
+* `long maximumAge`
+
+
+Other methods:
+
+* `autoSetLocationProvider()` automatically chooses the location provider.
+* `setLocationProvider(p)` set the location provider to be used. Can be, as in the `init()` a string or object instance.
+* `registerLocationProvider(name)` adds a new location provider to the list of providers.
+
+
+### Create your own Location Provider ###
+
+This library has been built to enable the usage of custom location providers, the following example shows how to do that:
+
+```javascript
+// This is just a dummy provider
+Geo.LocationProvider.MyProvider = Geo.LocationProvider.Base.extend({
+	getCurrentPosition: function(successCallback, errorCallback, options) {
+		successCallback(this.parseResult({
+			latitude: -37,
+			longitude: 11
+		}));
+	}
+});
+Geo.LocationProvider.MyProvider.available = function() {
+	return true;
+};
+
+Geo.registerLocationProvider('MyProvider');
+Geo.init('MyProvider');
+```
+
+
+### Default Providers ###
+
+This is the list of the default providers:
+
+* W3C
+* Gears
+* Bondi
+* Mojo
+* Nokia
+* FreeGeoIp
+* GeoIpPidgets
