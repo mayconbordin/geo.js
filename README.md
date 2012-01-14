@@ -28,7 +28,8 @@ Include the gears_init.js and geo.js libraries in your html:
 
 
 ```html
-<script src="js/Three.js"></script>
+<script src="http://code.google.com/apis/gears/gears_init.js"></script>
+<script src="js/geo.js"></script>
 ```
 
 
