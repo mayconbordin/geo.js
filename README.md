@@ -32,4 +32,10 @@ Include the gears_init.js and geo.js libraries in your html:
 <script src="js/geo.js"></script>
 ```
 
+Now you can start the library:
+
+
+```html
+Geo.init();
+```
 
