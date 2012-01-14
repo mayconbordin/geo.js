@@ -25,7 +25,7 @@ This library is very flexible, you can write your own location providers, use th
 ### Usage ###
 
 Include the gears_init.js and geo.js libraries in your html:
-```html
+`
 <script src="http://code.google.com/apis/gears/gears_init.js"></script>
 <script src="geo.js"></script>
-```
+`
