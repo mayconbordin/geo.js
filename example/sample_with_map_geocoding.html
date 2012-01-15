@@ -1,0 +1,83 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<!--<meta content='width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=no;' name='viewport'>-->
+		<title>Javascript geo sample</title>
+		
+		<style>
+			body {font-family: Helvetica;font-size:11pt;padding:0px;margin:0px}
+			#current {font-size:10pt;padding:5px;}	
+		</style>
+	
+		<script src="http://code.google.com/apis/gears/gears_init.js"></script>
+		<script src="../src/util.js"></script>
+		<script src="../src/geo.js"></script>
+		<script src="http://maps.google.com/maps/api/js?sensor=false"></script>
+	</head>	
+	<body>
+		<script>
+			function initialize_map() {
+				var myOptions = {
+					  zoom: 4,
+					  mapTypeControl: true,
+					  mapTypeControlOptions: {style: google.maps.MapTypeControlStyle.DROPDOWN_MENU},
+					  navigationControl: true,
+					  navigationControlOptions: {style: google.maps.NavigationControlStyle.SMALL},
+					  mapTypeId: google.maps.MapTypeId.ROADMAP      
+				};	
+				map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+			}
+			
+			function initialize() {
+				if (Geo.init()) {
+					document.getElementById('latlng').innerHTML = "Receiving...";
+					Geo.getCurrentPosition(show_position, function() {
+						document.getElementById('latlng').innerHTML = "Couldn't get location"
+					}, {enableHighAccuracy:true});
+				} else {
+					document.getElementById('latlng').innerHTML = "Functionality not available";
+				}
+			}
+
+			function show_position(p) {
+				document.getElementById('latlng').innerHTML 
+					= "latitude="+p.coords.latitude+" longitude="+p.coords.longitude;
+					
+				p.geocode(function(data) {
+					document.getElementById('address').innerHTML = data.formatted_address;
+				});
+					
+				var pos = new google.maps.LatLng(p.coords.latitude, p.coords.longitude);
+				map.setCenter(pos);
+				map.setZoom(14);
+
+				var infowindow = new google.maps.InfoWindow({
+					content: "<strong>yes</strong>"
+				});
+
+				var marker = new google.maps.Marker({
+					position: pos,
+					map: map,
+					title:"You are here"
+				});
+
+				google.maps.event.addListener(marker, 'click', function() {
+					infowindow.open(map,marker);
+				});
+			}
+			
+			window.onload = function() {
+				initialize_map();
+				initialize();
+			};
+		</script>
+	</head>
+	<body>
+		<div id="current">
+			<p id="latlng"><p>
+			<p id="address"></p>
+		</div>
+		<div id="map_canvas" style="width:320px; height:350px"></div>
+	</body>
+</html>

@@ -14,7 +14,7 @@
  * author: rmoriz
  */
 var Geo = (function() {
-	var providers = ["W3C", "Gears", "Bondi", "Mojo", "Nokia", "FreeGeoIp", "GeoIpPidgets"];
+	var providers = ["W3C", "Gears", "Bondi", "Mojo", "Nokia", "BlackBerry", "FreeGeoIp", "GeoIpPidgets"];
 	var provider = null;
 	
 	return {
@@ -24,8 +24,7 @@ var Geo = (function() {
 			else
 				this.autoSetLocationProvider();
 				
-			if (provider == null)
-				throw "There is no provider available";
+			return provider != null;
 		},
 		
 		
@@ -42,6 +41,12 @@ var Geo = (function() {
 			this.provider.clearWatch(watchId);
 		},
 		
+		/**
+		 * Get the device's IP address
+		 *
+		 * @param {function} successCallback
+		 * @param {function} errorCallback
+		 */
 		getIPAddress: function(successCallback, errorCallback) {
 			var ipProvider = new Geo.IPProvider.JSONIP();
 			ipProvider.getIP(successCallback, errorCallback);
@@ -161,6 +166,10 @@ Geo.Position = Class.extend({
 			
 		if (typeof(p.ip) != "undefined")
 			this.ip = p.ip;
+	},
+	
+	geocode: function(callback) {
+		Geo.CodingProvider.getInstance().geocode(this, callback);
 	}
 });
 
@@ -182,8 +191,39 @@ Geo.IPProvider.JSONIP = Geo.IPProvider.Base.extend({
 // =============================================================================
 // Geocoding Providers
 // =============================================================================
-Geo.CodingProvider = {};
-
+Geo.CodingProvider = {
+	providers: ['Google'],
+	instance: null,
+	getInstance: function() {
+		if (this.instance == null)
+			for (i in this.providers)
+				if (Geo.CodingProvider[this.providers[i]].available())
+					this.instance = new Geo.CodingProvider[this.providers[i]]();
+					
+		return this.instance;
+	}
+};
+Geo.CodingProvider.Google = Class.extend({
+	provider: null,
+	init: function() {
+		this.provider = new google.maps.Geocoder();
+	},
+	geocode: function(p, callback) {
+		var pos = new google.maps.LatLng(p.coords.latitude, p.coords.longitude);
+		this.provider.geocode({'latLng': pos}, function(results, status) {
+			if (status == google.maps.GeocoderStatus.OK)
+				if (results[0]) {
+					if (callback) callback(results[0]);
+					p.address = results[0];
+				}
+		});
+	}
+});
+Geo.CodingProvider.Google.available = function() {
+	if (typeof(google) != 'undefined' && typeof(google.maps) != 'undefined')
+		return true;
+	return false;
+};
 
 // =============================================================================
 // GeoLocation Providers
@@ -395,10 +435,92 @@ Geo.LocationProvider.Nokia.available = function() {
 };
 
 // BlackBerry Provider =========================================================
-Geo.LocationProvider.BlackBerry = Geo.LocationProvider.Base.extend({
-	init: function() {
-		this.provider = device.getServiceObject("Service.Location", "ILocation");
-	},
+Geo.LocationProvider.BlackBerry = (function() {
+	var bb_successCallback;
+	var bb_errorCallback;
+	var bb_blackberryTimeout_id = -1;
+
+	function handleBlackBerryLocationTimeout() {
+		if (bb_blackberryTimeout_id != -1)
+			bb_errorCallback({message: "Timeout error", code: 3});
+	}
+	
+	function handleBlackBerryLocation() {
+			clearTimeout(bb_blackberryTimeout_id);
+			bb_blackberryTimeout_id = -1;
+			
+		    if (bb_successCallback && bb_errorCallback) {
+	            if(blackberry.location.latitude == 0 && blackberry.location.longitude == 0) {
+                    //http://dev.w3.org/geo/api/spec-source.html#position_unavailable_error
+                    //POSITION_UNAVAILABLE (numeric value 2)
+                    bb_errorCallback({message:"Position unavailable", code:2});
+	            } else {  
+                    var timestamp = null;
+                    
+                    //only available with 4.6 and later
+                    //http://na.blackberry.com/eng/deliverables/8861/blackberry_location_568404_11.jsp
+                    if (blackberry.location.timestamp) {
+                    	timestamp = new Date(blackberry.location.timestamp);
+                    }
+                    
+                    bb_successCallback({
+                    	timestamp: timestamp,
+                    	coords: {
+                    		latitude: blackberry.location.latitude,
+                    		longitude: blackberry.location.longitude
+                    	}
+                    });
+	            }
+	            
+	            //since blackberry.location.removeLocationUpdate();
+	            //is not working as described
+	            //http://na.blackberry.com/eng/deliverables/8861/blackberry_location_removeLocationUpdate_568409_11.jsp
+	            //the callback are set to null to indicate that the job is done
+	            bb_successCallback = null;
+	            bb_errorCallback = null;
+		    }
+	}
+	
+	
+	return Geo.LocationProvider.Base.extend({
+		init: function() {
+			// set to autonomous mode
+			if(typeof(blackberry.location.setAidMode) == "undefined")
+            	return false;
+            	
+			blackberry.location.setAidMode(2);
+			provider = blackberry.location;
+		},
+		
+		getCurrentPosition: function(successCallback, errorCallback, options) {
+            //passing over callbacks as parameter didn't work consistently
+            //in the onLocationUpdate method, thats why they have to be set
+            //outside
+            bb_successCallback = successCallback;
+            bb_errorCallback   = errorCallback;
+            
+            //function needs to be a string according to
+            //http://www.tonybunce.com/2008/05/08/Blackberry-Browser-Amp-GPS.aspx
+			if (options['timeout']) {
+				bb_blackberryTimeout_id = setTimeout("handleBlackBerryLocationTimeout()", options['timeout']);
+			}
+			
+			//default timeout when none is given to prevent a hanging script
+			else {
+				bb_blackberryTimeout_id=setTimeout("handleBlackBerryLocationTimeout()",60000);
+			}
+			
+			blackberry.location.onLocationUpdate("handleBlackBerryLocation()");
+            blackberry.location.refreshLocation();
+	  	},
+	  	
+	  	watchPosition: function(successCallback, errorCallback, options) {
+			this._watchPosition(successCallback, errorCallback, options)
+		},
+	  	clearWatch: function(watchId) {
+	  		this._clearWatch(watchId);
+	  	}
+	});
 });
 Geo.LocationProvider.BlackBerry.available = function() {
 	if (typeof(window.blackberry) != "undefined" && blackberry.location.GPSSupported)

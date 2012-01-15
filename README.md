@@ -120,6 +120,23 @@ This is the list of the default providers:
 * GeoIpPidgets
 
 
+### Geocoding ###
+
+This library also support geocoding providers. The `Geo.Position` object has a method for reversing geocoding his coordinates:
+
+```javascript
+Geo.init();
+Geo.getCurrentPosition(success_callback);
+
+function success_callback(p) {
+	p.geocode(function(data) {
+		console.log(p);
+	});
+}
+```
+
+When you call the `geocode()` method, the callback is optional, because the function will set the address retrieved by geocoding in the `p` object. Although there is a `Geo.Address` object, it is not used when doing geocoding because the Google Geocoding API can return several address components [see](http://code.google.com/intl/en/apis/maps/documentation/geocoding/#Types).
+
 ### References ###
 
 * [W3C Geolocation API](http://www.w3.org/TR/geolocation-API/)
@@ -129,3 +146,4 @@ This is the list of the default providers:
 * [Pidgets GeoIP](http://geoip.pidgets.com/)
 * [geo-location-javascript](http://code.google.com/p/geo-location-javascript/)
 * [Locate Me](https://github.com/rmoriz/locate_me)
+* [Google Geocoding API](http://code.google.com/intl/en/apis/maps/documentation/geocoding/)
