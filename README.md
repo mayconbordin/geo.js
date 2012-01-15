@@ -166,7 +166,7 @@ In order to use the Google Geocoding API you need to include the GMaps library i
 <script src="http://maps.google.com/maps/api/js?sensor=false"></script>
 ```
 
-And if you're using the GeoNames service, you need to [create an account](http://www.geonames.org/login), login into your account and [enable free web services](http://www.geonames.org/manageaccount), and the inform the library what's your username:
+And if you're using the GeoNames service, you need to [create an account](http://www.geonames.org/login), login into your account and [enable free web services](http://www.geonames.org/manageaccount), and then inform the library what's your username:
 
 ```javascript
 if (Geo.init()) {
