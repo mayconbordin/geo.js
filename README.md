@@ -23,7 +23,7 @@ If none of this options are available, the library will try to retrieve the devi
 
 This library is very flexible, you can write your own location providers, use them as a fallback or set them as default. In the latter case, if your provider is not available, the library will choose another available option, and if it doesn't find any, it will then throw an error.
 
-This library also supports geocoding, the following providers are supported:
+This library also supports reverse geocoding, the following providers are supported:
 
 * Google Geocoding API
 * GeoNames
@@ -129,9 +129,9 @@ This is the list of the default providers:
 * GeoPlugin
 
 
-### Geocoding ###
+### Reverse Geocoding ###
 
-This library also support geocoding providers. The `Geo.Position` object has a method for reversing geocoding his coordinates:
+This library also support (reverse) geocoding providers. The `Geo.Position` object has a method for reversing geocoding his coordinates:
 
 ```javascript
 Geo.init();
