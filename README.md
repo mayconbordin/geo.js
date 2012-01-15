@@ -126,6 +126,7 @@ This is the list of the default providers:
 * Nokia
 * FreeGeoIp
 * GeoIpPidgets
+* GeoPlugin
 
 
 ### Geocoding ###
@@ -219,3 +220,5 @@ Like the location providers, the geocoding providers must be placed before the `
 * [geo-location-javascript](http://code.google.com/p/geo-location-javascript/)
 * [Locate Me](https://github.com/rmoriz/locate_me)
 * [Google Geocoding API](http://code.google.com/intl/en/apis/maps/documentation/geocoding/)
+* [GeoNames](http://www.geonames.org/)
+* [geoPlugin](http://www.geoplugin.com/)
