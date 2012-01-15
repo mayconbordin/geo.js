@@ -296,10 +296,6 @@ Geo.LocationProvider.Base = Class.extend({
 	provider: null,
 	lastPos: null,
 	
-	available: function() {
-		return false;
-	},
-	
 	getCurrentPosition: function(successCallback, errorCallback, options) {
 		var _this = this;
 		this.provider.getCurrentPosition(function(p) {
@@ -311,33 +307,33 @@ Geo.LocationProvider.Base = Class.extend({
 		return new Geo.Position(p);
 	},
 	
-	// Default implementation of position watcher
-	watchPosition: function(successCallback, errorCallback, options) {
+	// W3C implementation of position watcher
+	_watchPosition: function(successCallback, errorCallback, options) {
 		var _this = this;
 		this.provider.watchPosition(function(p) {
 			successCallback(_this.parseResult(p));
 		}, errorCallback, options);
 	},
 	
-	clearWatch: function(watchId) {
+	_clearWatch: function(watchId) {
 		this.provider.clearWatch(watchId);
 	},
 	
-	// Alternative implementation of position watcher
-	_watchPosition: function(successCallback, errorCallback, options) {
+	// Alternative implementation of position watcher (Default)
+	watchPosition: function(successCallback, errorCallback, options) {
 		var _this = this;
-		this._positionWatcher(successCallback, errorCallback, options);
+		this.positionWatcher(successCallback, errorCallback, options);
 		
 		return setInterval(function() {
-			_this._positionWatcher(successCallback, errorCallback, options);
+			_this.positionWatcher(successCallback, errorCallback, options);
 		}, 1000);
 	},
 	
-	_clearWatch: function(watchId) {
+	clearWatch: function(watchId) {
 		clearInterval(watchId);
 	},
 	
-	_positionWatcher: function(successCallback, errorCallback, options) {
+	positionWatcher: function(successCallback, errorCallback, options) {
 		var _this = this;
 		this.getCurrentPosition(function(p) {
 			if (!p.equals(_this.lastPos))
@@ -354,20 +350,17 @@ Geo.LocationProvider.Base = Class.extend({
 	}
 });
 
-Geo.LocationProvider.Base.create = function(ref, struct, fixed) {
-	var obj = Geo.LocationProvider.Base.extend(struct);
-	
-	for (attr in fixed)
-		obj[attr] = fixed[attr];
-		
-	return obj;
-};
-
 // W3C Provider ================================================================
 Geo.LocationProvider.W3C = Geo.LocationProvider.Base.extend({
 	init: function() {
 		this.provider = navigator.geolocation;
-	}
+	},
+	watchPosition: function(successCallback, errorCallback, options) {
+		this._watchPosition(successCallback, errorCallback, options);
+	},
+  	clearWatch: function(watchId) {
+  		this._clearWatch(watchId);
+  	}
 });
 Geo.LocationProvider.W3C.available = function() {
 	if (typeof(navigator.geolocation) != "undefined")
@@ -376,7 +369,7 @@ Geo.LocationProvider.W3C.available = function() {
 };
 
 // Gears Provider ==============================================================
-Geo.LocationProvider.Gears = Geo.LocationProvider.Base.extend({
+Geo.LocationProvider.Gears = Geo.LocationProvider.W3C.extend({
 	init: function() {
 		this.provider = google.gears.factory.create('beta.geolocation');
 	}
@@ -388,7 +381,7 @@ Geo.LocationProvider.Gears.available = function() {
 };
 
 // Bondi Provider ==============================================================
-Geo.LocationProvider.Bondi = Geo.LocationProvider.Base.extend({
+Geo.LocationProvider.Bondi = Geo.LocationProvider.W3C.extend({
 	init: function() {
 		this.provider = bondi.geolocation;
 	}
@@ -440,13 +433,6 @@ Geo.LocationProvider.Mojo = Geo.LocationProvider.Base.extend({
         	return {code: 2, message: "Position Unavailable"};
         else
             return {code: 0, message: "Unknown Error: webOS-code" + errorCode};
-  	},
-  	
-  	watchPosition: function(successCallback, errorCallback, options) {
-		this._watchPosition(successCallback, errorCallback, options)
-	},
-  	clearWatch: function(watchId) {
-  		this._clearWatch(watchId);
   	}
 });
 Geo.LocationProvider.Mojo.available = function() {
@@ -489,14 +475,7 @@ Geo.LocationProvider.Nokia = Geo.LocationProvider.Base.extend({
         };
         
 		return new Geo.Position(result);
-	},
-	
-	watchPosition: function(successCallback, errorCallback, options) {
-		this._watchPosition(successCallback, errorCallback, options)
-	},
-  	clearWatch: function(watchId) {
-  		this._clearWatch(watchId);
-  	}
+	}
 });
 Geo.LocationProvider.Nokia.available = function() {
 	if (typeof(device) != "undefined" && typeof(device.getServiceObject) != "undefined")
@@ -582,13 +561,6 @@ Geo.LocationProvider.BlackBerry = (function() {
 			
 			blackberry.location.onLocationUpdate("handleBlackBerryLocation()");
             blackberry.location.refreshLocation();
-	  	},
-	  	
-	  	watchPosition: function(successCallback, errorCallback, options) {
-			this._watchPosition(successCallback, errorCallback, options)
-		},
-	  	clearWatch: function(watchId) {
-	  		this._clearWatch(watchId);
 	  	}
 	});
 });
@@ -614,13 +586,7 @@ Geo.LocationProvider.IPBase = Geo.LocationProvider.Base.extend({
 				errorCallback({code: 3, message: "Timeout"});
 			}, this.cbname
 		);
-	},
-	watchPosition: function(successCallback, errorCallback, options) {
-		this._watchPosition(successCallback, errorCallback, options)
-	},
-  	clearWatch: function(watchId) {
-  		this._clearWatch(watchId);
-  	}
+	}
 });
 
 // FreeGeoIp Provider ==========================================================

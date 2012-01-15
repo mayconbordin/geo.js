@@ -1,0 +1,26 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Javascript geo sample</title>
+	
+		<script src="http://code.google.com/apis/gears/gears_init.js"></script>
+		<script src="../src/util.js"></script>
+		<script src="../src/geo.js"></script>
+	</head>	
+	<body>
+		<script>
+			if (Geo.init()) {
+				Geo.watchPosition(success_callback, error_callback);
+
+				function success_callback(p) {
+					console.log(p);
+				}
+		
+				function error_callback(p) {
+					console.log(p);
+				}
+			}
+		</script>
+	</body>
+</html>
