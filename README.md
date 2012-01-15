@@ -27,6 +27,7 @@ This library also supports reverse geocoding, the following providers are suppor
 
 * Google Geocoding API
 * GeoNames
+* Nominatim OpenStreetMap
 
 ### Usage ###
 
@@ -146,7 +147,7 @@ function success_callback(p) {
 
 When you call the `geocode()` method, the callback is optional, because the function will set the address retrieved by geocoding in the `p` object. Although there is a `Geo.Address` object, it is not used when doing geocoding because the Google Geocoding API can return several address components [(see)](http://code.google.com/intl/en/apis/maps/documentation/geocoding/#Types).
 
-Currently there is two geocoding providers available (`'Google', 'GeoNames'`). When calling the `geocode()` method, you can also provide to the function the geocoding provider that you would like to use:
+Currently there is three geocoding providers available (`'Google', 'GeoNames', 'Nominatim'`). When calling the `geocode()` method, you can also provide to the function the geocoding provider that you would like to use:
 
 ```javascript
 p.geocode(function(data) {
@@ -222,3 +223,4 @@ Like the location providers, the geocoding providers must be placed before the `
 * [Google Geocoding API](http://code.google.com/intl/en/apis/maps/documentation/geocoding/)
 * [GeoNames](http://www.geonames.org/)
 * [geoPlugin](http://www.geoplugin.com/)
+* [Nominatim OpenStreetMap](http://wiki.openstreetmap.org/wiki/Nominatim#Reverse_Geocoding_.2F_Address_lookup)

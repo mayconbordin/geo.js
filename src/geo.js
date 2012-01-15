@@ -188,7 +188,7 @@ Geo.IPProvider.JSONIP = Geo.IPProvider.Base.extend({
 Geo.CodingProvider = {
 	instance: null,
 	getInstance: function(p) {
-		if (typeof(p) != 'undefined' && this.providers.indexOf(p) != -1)
+		if (typeof(p) != 'undefined' && typeof(Geo.CodingProvider[p]) != 'undefined')
 			this.instance = new Geo.CodingProvider[p]();
 		else if (typeof(p) == 'object' && p.geocode)
 			this.instance = p;
@@ -258,6 +258,35 @@ Geo.CodingProvider.GeoNames.available = function() {
 	return true;
 };
 Geo.CodingProvider.GeoNames.username = 'demo';
+
+// Nominatim Geocoding Provider ================================================
+Geo.CodingProvider.Nominatim = Class.extend({
+	url: 'http://nominatim.openstreetmap.org/reverse',
+	geocode: function(p, callback) {
+		var params = {
+			format: 'json',
+			lat: p.coords.latitude,
+			lon: p.coords.longitude,
+			zoom: '18',
+			addressdetails: '1'
+		};
+		
+		JSONP.get(this.url, params,
+			function(results) {
+				if (results && results.address) {
+					var address = results.address;
+					address.display_name = results.display_name;
+					
+					if (callback) callback(address);
+					p.address = address;
+				}
+			}, null, 'json_callback'
+		);
+	}
+});
+Geo.CodingProvider.Nominatim.available = function() {
+	return true;
+};
 
 // =============================================================================
 // GeoLocation Providers
