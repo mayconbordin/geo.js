@@ -102,7 +102,7 @@ var JSONP = (function() {
         head.appendChild(script);
     }
 
-    function jsonp(url, params, error, callback) {
+    function jsonp(url, params, callback, error, cbname) {
         query = "?";
         params = params || {};
         for (key in params) {
@@ -119,7 +119,8 @@ var JSONP = (function() {
             window[jsonp] = null;
         };
 
-        load(url + query + "callback=" + jsonp);
+		cbname = cbname || "callback";
+        load(url + query + cbname + "=" + jsonp);
 
         error = error ||
         function () {};

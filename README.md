@@ -19,8 +19,14 @@ If none of this options are available, the library will try to retrieve the devi
 
 * freegeoip.net
 * geoip.pidgets.com
+* geoplugin.com
 
 This library is very flexible, you can write your own location providers, use them as a fallback or set them as default. In the latter case, if your provider is not available, the library will choose another available option, and if it doesn't find any, it will then throw an error.
+
+This library also supports geocoding, the following providers are supported:
+
+* Google Geocoding API
+* GeoNames
 
 ### Usage ###
 
@@ -36,7 +42,7 @@ Include the gears_init.js, util.js and geo.js libraries in your html:
 Now you can start the library:
 
 
-```html
+```javascript
 Geo.init();
 ```
 
@@ -55,11 +61,13 @@ To get the user location you just do this:
 
 
 ```javascript
-Geo.getCurrentPosition(function(p) {
-	console.log(p);
-}, function(e) {
-	console.log("Error " + e.code + ": " + e.message);
-});
+if (Geo.init()) {
+	Geo.getCurrentPosition(function(p) {
+		console.log(p);
+	}, function(e) {
+		console.log("Error " + e.code + ": " + e.message);
+	});
+}
 ```
 
 ### Methods ###
@@ -79,9 +87,9 @@ The `options` argument, is an object that can have one or more of those attribut
 
 Other methods:
 
+* `getIPAddress()` returns the device's IP address.
 * `autoSetLocationProvider()` automatically chooses the location provider.
 * `setLocationProvider(p)` set the location provider to be used. Can be, as in the `init()` a string or object instance.
-* `registerLocationProvider(name)` adds a new location provider to the list of providers.
 
 
 ### Create your own Location Provider ###
@@ -102,10 +110,10 @@ Geo.LocationProvider.MyProvider.available = function() {
 	return true;
 };
 
-Geo.registerLocationProvider('MyProvider');
 Geo.init('MyProvider');
 ```
 
+Your location providers must be placed before the `Geo.init()` in order to be included in the provider auto selection. They also need to be created as an attribute of `Geo.LocationProvider` object to be registered.
 
 ### Default Providers ###
 
@@ -135,7 +143,71 @@ function success_callback(p) {
 }
 ```
 
-When you call the `geocode()` method, the callback is optional, because the function will set the address retrieved by geocoding in the `p` object. Although there is a `Geo.Address` object, it is not used when doing geocoding because the Google Geocoding API can return several address components [see](http://code.google.com/intl/en/apis/maps/documentation/geocoding/#Types).
+When you call the `geocode()` method, the callback is optional, because the function will set the address retrieved by geocoding in the `p` object. Although there is a `Geo.Address` object, it is not used when doing geocoding because the Google Geocoding API can return several address components [(see)](http://code.google.com/intl/en/apis/maps/documentation/geocoding/#Types).
+
+Currently there is two geocoding providers available (`'Google', 'GeoNames'`). When calling the `geocode()` method, you can also provide to the function the geocoding provider that you would like to use:
+
+```javascript
+p.geocode(function(data) {
+	console.log(p);
+}, 'Google');
+
+// or
+
+p.geocode(function(data) {
+	console.log(p);
+}, new Geo.CodingProvider.GeoNames());
+```
+
+In order to use the Google Geocoding API you need to include the GMaps library in your html:
+
+```html
+<script src="http://maps.google.com/maps/api/js?sensor=false"></script>
+```
+
+And if you're using the GeoNames service, you need to [create an account](http://www.geonames.org/login), login into your account and [enable free web services](http://www.geonames.org/manageaccount), and the inform the library what's your username:
+
+```javascript
+if (Geo.init()) {
+	// provide your username to use the geonames web service
+	Geo.CodingProvider.GeoNames.username = 'myusername';
+	Geo.getCurrentPosition(success_callback, error_callback);
+
+	function success_callback(p) {
+		p.geocode(function(data) {
+			console.log(data);
+		}, 'GeoNames');
+	}
+
+	function error_callback(p) {
+		console.log(p);
+	}
+}
+```
+
+
+You can also write your own geocoder:
+
+```javascript
+Geo.CodingProvider.MyGeocoder = Class.extend({
+	// this is the method called when geocode the Geo.Position object p
+	geocode: function(p, callback) {
+		// call the geocoding service using jsonp or through a proxy (ajax)
+		// and then if there is a callback return the result
+		if (callback) callback(results);
+		
+		// you need also to set the address in the Geo.Position object p
+		p.address = results;
+	}
+});
+
+// here you check if the service is available
+Geo.CodingProvider.MyGeocoder.available = function() {
+	return true;
+};
+```
+
+Like the location providers, the geocoding providers must be placed before the `Geo.init()` call.
 
 ### References ###
 
