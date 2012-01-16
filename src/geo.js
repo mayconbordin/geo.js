@@ -92,18 +92,8 @@ Geo.Coordinates = Class.extend({
 });
 
 Geo.Address = Class.extend({
-	street_code: null,
-	street_name: null,
-	city: null,
-	region_code: null,
-	region_name: null,
-	metrocode: null,
-	zipcode: null,
-	country_code: null,
-	country_name: null,
-	continent_code: null,
-	dma_code: null,
-	area_code: null
+	formatted: null,
+	details: null
 });
 
 Geo.Position = Class.extend({
@@ -113,7 +103,7 @@ Geo.Position = Class.extend({
 	ip: null,
 	
 	init: function(p) {
-		this.coords = new Geo.Coordinates();
+		this.coords  = new Geo.Coordinates();
 		this.address = new Geo.Address()
 		
 		if (typeof(p) != "undefined") {
@@ -203,7 +193,7 @@ Geo.CodingProvider = {
 	},
 	
 	isValid: function(cp) {
-		var invalid = ['providers', 'instance', 'getInstance', 'isValid'];
+		var invalid = ['providers', 'instance', 'getInstance', 'isValid', 'Base'];
 		for (i in invalid)
 			if (cp == invalid[i])
 				return false;
@@ -211,21 +201,50 @@ Geo.CodingProvider = {
 	}
 };
 
+Geo.CodingProvider.Base = Class.extend({
+	successResponse: function(data, position, callback) {
+		if (callback) callback(data);
+		this.setAddress(position, data);
+	},
+	
+	emptyResponse: function(callback) {
+		if (callback) callback(null);
+	},
+	
+	errorResponse: function(callback, details) {
+		if (callback)
+			callback({error: {message: 'Unable to geocode the position', details: details}});
+	},
+	
+	setAddress: function(position, data) {
+		position.address.formatted = null;
+		position.address.details   = data; 
+	}
+});
+
 // Google Geocoding Provider ===================================================
-Geo.CodingProvider.Google = Class.extend({
+Geo.CodingProvider.Google = Geo.CodingProvider.Base.extend({
 	provider: null,
 	init: function() {
 		this.provider = new google.maps.Geocoder();
 	},
 	geocode: function(p, callback) {
+		var _this = this;
 		var pos = new google.maps.LatLng(p.coords.latitude, p.coords.longitude);
 		this.provider.geocode({'latLng': pos}, function(results, status) {
 			if (status == google.maps.GeocoderStatus.OK)
-				if (results[0]) {
-					if (callback) callback(results[0]);
-					p.address = results[0];
-				}
+				if (results[0])
+					_this.successResponse(results, p, callback);
+				else
+					_this.emptyResponse(callback);
+			else
+				_this.errorResponse(callback, results);
 		});
+	},
+	
+	setAddress: function(position, data) {
+		position.address.formatted = data[0].formatted_address;
+		position.address.details   = data[0].address_components; 
 	}
 });
 Geo.CodingProvider.Google.available = function() {
@@ -235,23 +254,24 @@ Geo.CodingProvider.Google.available = function() {
 };
 
 // GeoNames Geocoding Provider =================================================
-Geo.CodingProvider.GeoNames = Class.extend({
+Geo.CodingProvider.GeoNames = Geo.CodingProvider.Base.extend({
 	url: 'http://api.geonames.org/findNearbyPlaceNameJSON',
 	geocode: function(p, callback) {
+		var _this = this;
 		var params = {
 			lat: p.coords.latitude,
 			lng: p.coords.longitude,
 			username: Geo.CodingProvider.GeoNames.username
 		};
 		
-		JSONP.get(this.url, params,
-			function(results) {
-				if (results.geonames && results.geonames[0]) {
-					if (callback) callback(results.geonames[0]);
-					p.address = results.geonames[0];
-				}
-			}
-		);
+		JSONP.get(this.url, params, function(results) {
+			if (results.geonames && results.geonames[0])
+				_this.successResponse(results.geonames[0], p, callback);
+			else
+				_this.emptyResponse(callback);
+		}, function() {
+			_this.errorResponse(callback);
+		});
 	}
 });
 Geo.CodingProvider.GeoNames.available = function() {
@@ -260,9 +280,10 @@ Geo.CodingProvider.GeoNames.available = function() {
 Geo.CodingProvider.GeoNames.username = 'demo';
 
 // Nominatim Geocoding Provider ================================================
-Geo.CodingProvider.Nominatim = Class.extend({
+Geo.CodingProvider.Nominatim = Geo.CodingProvider.Base.extend({
 	url: 'http://nominatim.openstreetmap.org/reverse',
 	geocode: function(p, callback) {
+		var _this = this;
 		var params = {
 			format: 'json',
 			lat: p.coords.latitude,
@@ -271,22 +292,58 @@ Geo.CodingProvider.Nominatim = Class.extend({
 			addressdetails: '1'
 		};
 		
-		JSONP.get(this.url, params,
-			function(results) {
-				if (results && results.address) {
-					var address = results.address;
-					address.display_name = results.display_name;
-					
-					if (callback) callback(address);
-					p.address = address;
-				}
-			}, null, 'json_callback'
-		);
+		JSONP.get(this.url, params, function(results) {
+			if (results && results.address)
+				_this.successResponse(results, p, callback);
+			else
+				_this.emptyResponse(callback);
+		}, function() {
+			_this.errorResponse(callback);
+		}, 'json_callback');
+	},
+	
+	setAddress: function(position, data) {
+		position.address.formatted = data.display_name;
+		position.address.details   = data.address; 
 	}
 });
 Geo.CodingProvider.Nominatim.available = function() {
 	return true;
 };
+
+// Flickr Geocoding Provider ===================================================
+Geo.CodingProvider.Flickr = Geo.CodingProvider.Base.extend({
+	url: 'http://api.flickr.com/services/rest/',
+	
+	geocode: function(p, callback) {
+		var _this = this;
+		var params = {
+			method: 'flickr.places.findByLatLon',
+			lat: p.coords.latitude,
+			lon: p.coords.longitude,
+			format: 'json',
+			api_key: Geo.CodingProvider.Flickr.apiKey
+		};
+		
+		JSONP.get(this.url, params, function(results) {
+			if (results && results.places && results.places.place.length > 0)
+				_this.successResponse(results, p, callback);
+			else
+				_this.emptyResponse(callback);
+		}, function() {
+			_this.errorResponse(callback);
+		}, 'jsoncallback');
+	},
+	
+	setAddress: function(position, data) {
+		position.address.formatted = data.places.place[0].name;
+		position.address.details   = data.places.place[0];
+	}
+});
+Geo.CodingProvider.Flickr.available = function() {
+	return true;
+};
+Geo.CodingProvider.Flickr.apiKey = '';
 
 // =============================================================================
 // GeoLocation Providers
@@ -340,13 +397,6 @@ Geo.LocationProvider.Base = Class.extend({
 				successCallback(p);
 			_this.lastPos = p;
 		}, errorCallback, options);
-	},
-	
-	processMap: function(map, src) {
-		var obj = {};
-		for (attr in map)
-			obj[map[attr]] = src[attr];
-		return obj;
 	}
 });
 
@@ -578,14 +628,17 @@ Geo.LocationProvider.IPBase = Geo.LocationProvider.Base.extend({
 	getCurrentPosition: function(successCallback, errorCallback, options) {
 		var _this = this;
 		
-		JSONP.get(this.url, this.params,
-			function(p) {
-				successCallback(_this.parseResult(p));
-			},
-			function() {
+		JSONP.get(this.url, this.params, function(p) {
+			successCallback(_this.parseResult(p));
+		}, function() {
 				errorCallback({code: 3, message: "Timeout"});
-			}, this.cbname
-		);
+		}, this.cbname);
+	},
+	parseResult: function(p) {
+		return new Geo.Position({
+			formatted: p.city + ', ' + p.region_name + ' - ' + p.country_name,
+			details: p
+		});
 	}
 });
 
@@ -600,13 +653,7 @@ Geo.LocationProvider.FreeGeoIp.available = function() {
 // GeoIpPidgets Provider =======================================================
 Geo.LocationProvider.GeoIpPidgets = Geo.LocationProvider.IPBase.extend({
 	url: 'http://geoip.pidgets.com/',
-	params: {format: 'json'},
-	
-	parseResult: function(p) {
-  		p.zipcode 		= p.postal_code;
-  		p.region_name 	= p.region;
-		return new Geo.Position(p);
-	}
+	params: {format: 'json'}
 });
 Geo.LocationProvider.GeoIpPidgets.available = function() {
 	return true;
@@ -618,20 +665,10 @@ Geo.LocationProvider.GeoPlugin = Geo.LocationProvider.IPBase.extend({
 	cbname: 'jsoncallback',
 	
 	parseResult: function(p) {
-  		var map = {
-			geoplugin_city: 'city',
-			geoplugin_areaCode: 'area_code',
-			geoplugin_dmaCode: 'dma_code',
-			geoplugin_countryCode: 'country_code',
-			geoplugin_countryName: 'country_name',
-			geoplugin_continentCode: 'continent_code',
-			geoplugin_latitude: 'latitude',
-			geoplugin_longitude: 'longitude',
-			geoplugin_regionCode: 'region_code',
-			geoplugin_regionName: 'region_name'
-		};
-		
-		return new Geo.Position(this.processMap(map, p));
+		return new Geo.Position({
+			formatted: p.geoplugin_city + ', ' + p.geoplugin_regionName + ' - ' + p.geoplugin_countryName,
+			details: p
+		});
 	}
 });
 Geo.LocationProvider.GeoPlugin.available = function() {

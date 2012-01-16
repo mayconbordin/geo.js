@@ -26,6 +26,7 @@ This library is very flexible, you can write your own location providers, use th
 This library also supports reverse geocoding, the following providers are supported:
 
 * Google Geocoding API
+* Flickr Places API
 * GeoNames
 * Nominatim OpenStreetMap
 
@@ -143,11 +144,19 @@ function success_callback(p) {
 		console.log(p);
 	});
 }
+
+// or
+
+var position = new Geo.Position({latitude: 48.833, longitude: 2.333});
+position.geocode(function(addr) {
+	console.log(position);
+	console.log(addr);
+});
 ```
 
 When you call the `geocode()` method, the callback is optional, because the function will set the address retrieved by geocoding in the `p` object. Although there is a `Geo.Address` object, it is not used when doing geocoding because the Google Geocoding API can return several address components [(see)](http://code.google.com/intl/en/apis/maps/documentation/geocoding/#Types).
 
-Currently there is three geocoding providers available (`'Google', 'GeoNames', 'Nominatim'`). When calling the `geocode()` method, you can also provide to the function the geocoding provider that you would like to use:
+Currently there is four geocoding providers available (`'Google', 'Flickr', 'GeoNames', 'Nominatim'`). When calling the `geocode()` method, you can also provide to the function the geocoding provider that you would like to use:
 
 ```javascript
 p.geocode(function(data) {
@@ -187,19 +196,66 @@ if (Geo.init()) {
 }
 ```
 
+For the Flickr API, you will need to [create an app](http://www.flickr.com/services/apps/create/) to get an app_key and use the reverse geocoding web service:
+
+```javascript
+if (Geo.init()) {
+	// set your Flickr API key
+	Geo.CodingProvider.Flickr.apiKey = 'your_api_key';
+	
+//...
+}
+```
 
 You can also write your own geocoder:
 
 ```javascript
+// My geocoder is using JSONP to call an external webservice
 Geo.CodingProvider.MyGeocoder = Class.extend({
+	// the url of my geocoder web service
+	url: 'http://api.mygeocoder.com/',
+	
 	// this is the method called when geocode the Geo.Position object p
+	// this method is mandatory
 	geocode: function(p, callback) {
-		// call the geocoding service using jsonp or through a proxy (ajax)
-		// and then if there is a callback return the result
-		if (callback) callback(results);
+		var _this = this;
 		
-		// you need also to set the address in the Geo.Position object p
-		p.address = results;
+		// the parameters for the web service call
+		var params = {
+			format: 'json',
+			lat: p.coords.latitude,
+			lng: p.coords.longitude
+		};
+		
+		// now I call the web service
+		JSONP.get(this.url, params, function(result) {
+			// if there is a result, call the success response
+			// you send the result received, the position object, and the user's callback
+			if (result)
+				_this.successResponse(result, p, callback);
+				
+			// otherwise call the empty response
+			else
+				_this.emptyResponse(callback);
+		}, function() {
+			// this is the error callback, in this case call the error response
+			_this.errorResponse(callback);
+		});
+	},
+	
+	// by default, the position object given to the successResponse will
+	// have the formatted address set as null and the details set as the result object
+	// but you override this method to handle the result
+	setAddress: function(position, data) {
+		// The Geo.Address object has two attributes
+		// the formatted attribute is the full name of the place
+		// Ex.: Mouton-Duvernet, Paris, Ile de France, FR, France
+		position.address.formatted = data.display_name;
+		
+		// and the details is an object with detailed info about the place
+		// as each geocoder may have different info about some place, there is no
+		// rules for the details object
+		position.address.details   = data.address; 
 	}
 });
 
@@ -209,7 +265,7 @@ Geo.CodingProvider.MyGeocoder.available = function() {
 };
 ```
 
-Like the location providers, the geocoding providers must be placed before the `Geo.init()` call.
+Like the location providers, the geocoding providers must be placed before the `Geo.init()` call. The geocoding provider must have at least two methods: `void geocode(Geo.Position p, function callback)` and `boolean available()`.
 
 ### References ###
 
@@ -224,3 +280,4 @@ Like the location providers, the geocoding providers must be placed before the `
 * [GeoNames](http://www.geonames.org/)
 * [geoPlugin](http://www.geoplugin.com/)
 * [Nominatim OpenStreetMap](http://wiki.openstreetmap.org/wiki/Nominatim#Reverse_Geocoding_.2F_Address_lookup)
+* [Flickr API](http://www.flickr.com/services/api/)
