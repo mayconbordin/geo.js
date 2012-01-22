@@ -131,6 +131,32 @@ This is the list of the default providers:
 * GeoPlugin
 
 
+### Geocoding Examples ###
+Geo.js supports geocoding from an address to latitude and longitude, latitude longitude to address and IP to address.
+
+```javascript
+if (Geo.init()) {
+	// Get the address from coordinates
+	var position = new Geo.Position({latitude: 48.833, longitude: 2.333});
+	position.geocode(function(addr) {
+		console.log(position);
+	});
+	
+	// Get the coordinates from an address
+	var position = new Geo.Position({address: {formatted: 'Mouton-Duvernet, Paris, Ile de France, FR, France'}});
+	position.geocode(function(addr) {
+		console.log(position);
+	});
+	
+	// Get the coordinates and address from an IP address
+	var position = new Geo.Position({ip: '74.125.234.115'});
+	position.geocode(function(addr) {
+		console.log(position);
+	});
+}
+```
+
+
 ### Reverse Geocoding ###
 
 This library also support (reverse) geocoding providers. The `Geo.Position` object has a method for reversing geocoding his coordinates:
@@ -181,7 +207,7 @@ And if you're using the GeoNames service, you need to [create an account](http:/
 ```javascript
 if (Geo.init()) {
 	// provide your username to use the geonames web service
-	Geo.CodingProvider.GeoNames.username = 'myusername';
+	Geo.RevCodeProvider.GeoNames.username = 'myusername';
 	Geo.getCurrentPosition(success_callback, error_callback);
 
 	function success_callback(p) {
@@ -201,7 +227,7 @@ For the Flickr API, you will need to [create an app](http://www.flickr.com/servi
 ```javascript
 if (Geo.init()) {
 	// set your Flickr API key
-	Geo.CodingProvider.Flickr.apiKey = 'your_api_key';
+	Geo.CodeProvider.Flickr.apiKey = 'your_api_key';
 	
 //...
 }
@@ -211,56 +237,37 @@ You can also write your own geocoder:
 
 ```javascript
 // My geocoder is using JSONP to call an external webservice
-Geo.CodingProvider.MyGeocoder = Class.extend({
+Geo.RevCodeProvider.MyGeocoder = Class.extend({
 	// the url of my geocoder web service
 	url: 'http://api.mygeocoder.com/',
 	
 	// this is the method called when geocode the Geo.Position object p
 	// this method is mandatory
 	geocode: function(p, callback) {
-		var _this = this;
-		
-		// the parameters for the web service call
-		var params = {
+		this._jsonp(p, callback, {
 			format: 'json',
-			lat: p.coords.latitude,
-			lng: p.coords.longitude
-		};
-		
-		// now I call the web service
-		JSONP.get(this.url, params, function(result) {
-			// if there is a result, call the success response
-			// you send the result received, the position object, and the user's callback
-			if (result)
-				_this.successResponse(result, p, callback);
-				
-			// otherwise call the empty response
-			else
-				_this.emptyResponse(callback);
-		}, function() {
-			// this is the error callback, in this case call the error response
-			_this.errorResponse(callback);
+			lat	  : p.coords.latitude,
+			lng	  : p.coords.longitude
 		});
 	},
 	
-	// by default, the position object given to the successResponse will
-	// have the formatted address set as null and the details set as the result object
-	// but you override this method to handle the result
-	setAddress: function(position, data) {
-		// The Geo.Address object has two attributes
-		// the formatted attribute is the full name of the place
-		// Ex.: Mouton-Duvernet, Paris, Ile de France, FR, France
-		position.address.formatted = data.display_name;
-		
-		// and the details is an object with detailed info about the place
-		// as each geocoder may have different info about some place, there is no
-		// rules for the details object
-		position.address.details   = data.address; 
+	// Check if the returned data is ok
+	isResultOk: function(result) {
+		return (result != null);
+	},
+	
+	// If the ajax call succeeded, the the result data should
+	// be set in the position object
+	setResult: function(position, data) {
+		position.merge({
+			formatted: data.full_address,
+			details: data
+		});
 	}
 });
 
 // here you check if the service is available
-Geo.CodingProvider.MyGeocoder.available = function() {
+Geo.RevCodeProvider.MyGeocoder.available = function() {
 	return true;
 };
 ```
