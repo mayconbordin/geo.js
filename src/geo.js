@@ -56,7 +56,7 @@ var Geo = (function() {
 		 */
 		autoSetLocationProvider: function() {
 			for (var p in Geo.LocationProvider) {
-				if (p != 'Base' && Geo.LocationProvider[p].available()) {
+				if (p != 'Base' && p != 'IPBase' && Geo.LocationProvider[p].available()) {
 					this.setLocationProvider(new Geo.LocationProvider[p]());
 					break;
 				}
@@ -119,8 +119,7 @@ Geo.Position = Class.extend({
 	 * @return {boolean} True if equal, false otherwise
 	 */
 	equals: function(p) {
-		if (p == null)
-			return false;
+		if (p == null) return false;
 			
 		if (p.coords.latitude == this.coords.latitude 
 				&& p.coords.longitude == this.coords.longitude)
@@ -140,10 +139,11 @@ Geo.Position = Class.extend({
 		for (attr in coords)
 			if (typeof(this.coords[attr]) != "undefined")
 				this.coords[attr] = coords[attr];
-				
-		for (attr in p)
+		
+		var addr = (typeof(p.address) != "undefined") ? p.address : p;
+		for (attr in addr)
 			if (typeof(this.address[attr]) != "undefined")
-				this.address[attr] = p[attr];
+				this.address[attr] = addr[attr];
 
 		if (typeof(p.timestamp) != "undefined")
 			this.timestamp = p.timestamp;
@@ -153,7 +153,12 @@ Geo.Position = Class.extend({
 	},
 	
 	geocode: function(callback, provider) {
-		Geo.CodingProvider.getInstance(provider).geocode(this, callback);
+		if (this.coords.latitude && this.coords.longitude)
+			Geo.CodingProvider.getRevGeocoder(provider).geocode(this, callback);
+		else if (this.address.formatted)
+			Geo.CodingProvider.getGeocoder(provider).geocode(this, callback);
+		else if (this.ip)
+			Geo.CodingProvider.getIpGeocoder(provider).geocode(this, callback);
 	}
 });
 
@@ -175,175 +180,214 @@ Geo.IPProvider.JSONIP = Geo.IPProvider.Base.extend({
 // =============================================================================
 // Geocoding Providers
 // =============================================================================
-Geo.CodingProvider = {
+Geo.CodeProvider 	= {};
+Geo.RevCodeProvider = {};
+Geo.IpCodeProvider  = {};
+Geo.CodingProvider  = {
 	instance: null,
-	getInstance: function(p) {
-		if (typeof(p) != 'undefined' && typeof(Geo.CodingProvider[p]) != 'undefined')
-			this.instance = new Geo.CodingProvider[p]();
-		else if (typeof(p) == 'object' && p.geocode)
+	getGeocoder: function(p) {
+		return this.getInstance(p, Geo.CodeProvider);
+	},
+	getRevGeocoder: function(p) {
+		return this.getInstance(p, Geo.RevCodeProvider);
+	},
+	getIpGeocoder: function(p) {
+		return this.getInstance(p, Geo.IpCodeProvider);
+	},
+	getInstance: function(p, src) {
+		if (typeof(p) != 'undefined' && typeof(src[p]) != 'undefined')
+			this.instance = new src[p]();
+		else if (typeof(p) == 'object')
 			this.instance = p;
 		else if (this.instance == null)
-			for (cp in Geo.CodingProvider)
-				if (this.isValid(cp) && Geo.CodingProvider[cp].available()) {
-					this.instance = new Geo.CodingProvider[cp]();
+			for (cp in src)
+				if (cp != 'Base' && src[cp].available()) {
+					this.instance = new src[cp]();
 					break;
 				}
 					
 		return this.instance;
-	},
-	
-	isValid: function(cp) {
-		var invalid = ['providers', 'instance', 'getInstance', 'isValid', 'Base'];
-		for (i in invalid)
-			if (cp == invalid[i])
-				return false;
-		return true;
 	}
 };
 
 Geo.CodingProvider.Base = Class.extend({
+	params: {},
+	cbname: null,
 	successResponse: function(data, position, callback) {
 		if (callback) callback(data);
-		this.setAddress(position, data);
+		this.setResult(position, data);
 	},
-	
 	emptyResponse: function(callback) {
 		if (callback) callback(null);
 	},
-	
 	errorResponse: function(callback, details) {
 		if (callback)
 			callback({error: {message: 'Unable to geocode the position', details: details}});
 	},
-	
-	setAddress: function(position, data) {
-		position.address.formatted = null;
-		position.address.details   = data; 
+	setResult: function(position, data) {},
+	_jsonp: function(p, callback, params) {
+		var self = this;
+		Util.merge(this.params, params);
+		JSONP.get(this.url, this.params, function(result) {
+			if (self.isResultOk(result)) self.successResponse(result, p, callback);
+			else self.emptyResponse(callback);
+		}, function() {
+			self.errorResponse(callback);
+		}, this.cbname);
+	},
+	isResultOk: function(result) {
+		return (result != null && typeof(result) != 'undefined');
 	}
 });
 
 // Google Geocoding Provider ===================================================
-Geo.CodingProvider.Google = Geo.CodingProvider.Base.extend({
+Geo.CodeProvider.Google = Geo.CodingProvider.Base.extend({
 	provider: null,
 	init: function() {
 		this.provider = new google.maps.Geocoder();
 	},
+
 	geocode: function(p, callback) {
-		var _this = this;
-		var pos = new google.maps.LatLng(p.coords.latitude, p.coords.longitude);
-		this.provider.geocode({'latLng': pos}, function(results, status) {
+		this.params.address = p.address.formatted;
+		this._geocode(p, callback);
+	},
+	
+	_geocode: function(p, callback) {
+		var self = this;
+		this.provider.geocode(this.params, function(results, status) {
 			if (status == google.maps.GeocoderStatus.OK)
-				if (results[0])
-					_this.successResponse(results, p, callback);
-				else
-					_this.emptyResponse(callback);
-			else
-				_this.errorResponse(callback, results);
+				if (results[0]) self.successResponse(results, p, callback);
+				else self.emptyResponse(callback);
+			else self.errorResponse(callback, results);
 		});
 	},
 	
-	setAddress: function(position, data) {
-		position.address.formatted = data[0].formatted_address;
-		position.address.details   = data[0].address_components; 
-	}
-});
-Geo.CodingProvider.Google.available = function() {
-	if (typeof(google) != 'undefined' && typeof(google.maps) != 'undefined')
-		return true;
-	return false;
-};
-
-// GeoNames Geocoding Provider =================================================
-Geo.CodingProvider.GeoNames = Geo.CodingProvider.Base.extend({
-	url: 'http://api.geonames.org/findNearbyPlaceNameJSON',
-	geocode: function(p, callback) {
-		var _this = this;
-		var params = {
-			lat: p.coords.latitude,
-			lng: p.coords.longitude,
-			username: Geo.CodingProvider.GeoNames.username
-		};
-		
-		JSONP.get(this.url, params, function(results) {
-			if (results.geonames && results.geonames[0])
-				_this.successResponse(results.geonames[0], p, callback);
-			else
-				_this.emptyResponse(callback);
-		}, function() {
-			_this.errorResponse(callback);
+	setResult: function(position, data) {
+		position.merge({
+			latitude : data[0].geometry.location.lat(),
+			longitude: data[0].geometry.location.lng(),
+			formatted: data[0].formatted_address,
+			details  : data[0].address_components
 		});
 	}
 });
-Geo.CodingProvider.GeoNames.available = function() {
+Geo.RevCodeProvider.Google = Geo.CodeProvider.Google.extend({
+	geocode: function(p, callback) {
+		this.params.location = new google.maps.LatLng(p.coords.latitude, p.coords.longitude);
+		this._geocode(p, callback);
+	}
+});
+Geo.CodeProvider.Google.available = Geo.RevCodeProvider.Google.available = function() {
+	return (typeof(google) != 'undefined' && typeof(google.maps) != 'undefined');
+};
+
+// GeoNames Geocoding Provider =================================================
+Geo.RevCodeProvider.GeoNames = Geo.CodingProvider.Base.extend({
+	url: 'http://api.geonames.org/findNearbyPlaceNameJSON',
+	geocode: function(p, callback) {
+		this._jsonp(p, callback, {
+			username: Geo.RevCodeProvider.GeoNames.username,
+			lat		: p.coords.latitude,
+			lng		: p.coords.longitude
+		});
+	},
+	
+	isResultOk: function(result) {
+		return (result.geonames && result.geonames[0]);
+	},
+	
+	setResult: function(position, data) {
+		var a = data.geonames[0];
+		position.merge({
+			formatted: a.adminName1 + ' - ' + a.countryName,
+			details: a
+		});
+	}
+});
+Geo.RevCodeProvider.GeoNames.available = function() {
 	return true;
 };
-Geo.CodingProvider.GeoNames.username = 'demo';
+Geo.RevCodeProvider.GeoNames.username = 'demo';
 
 // Nominatim Geocoding Provider ================================================
-Geo.CodingProvider.Nominatim = Geo.CodingProvider.Base.extend({
+Geo.CodeProvider.Nominatim = Geo.CodingProvider.Base.extend({
+	url: 'http://nominatim.openstreetmap.org/search',
+	cbname: 'json_callback',
+	params: {format: 'json'},
+
+	geocode: function(p, callback) {
+		this._jsonp(p, callback, {
+			q: p.address.formatted
+		});
+	},
+	
+	isResultOk: function(result) {
+		return (result && (result.address || result[0]));
+	},
+	
+	setResult: function(position, data) {
+		if (data.address)
+			position.merge({formatted: data.display_name, details: data.address});
+		else
+			position.merge({latitude: data[0].lat, longitude: data[0].lon});
+	}
+});
+Geo.RevCodeProvider.Nominatim = Geo.CodeProvider.Nominatim.extend({
 	url: 'http://nominatim.openstreetmap.org/reverse',
 	geocode: function(p, callback) {
-		var _this = this;
-		var params = {
-			format: 'json',
+		this._jsonp(p, callback, {
 			lat: p.coords.latitude,
 			lon: p.coords.longitude,
 			zoom: '18',
 			addressdetails: '1'
-		};
-		
-		JSONP.get(this.url, params, function(results) {
-			if (results && results.address)
-				_this.successResponse(results, p, callback);
-			else
-				_this.emptyResponse(callback);
-		}, function() {
-			_this.errorResponse(callback);
-		}, 'json_callback');
+		});
 	},
-	
-	setAddress: function(position, data) {
-		position.address.formatted = data.display_name;
-		position.address.details   = data.address; 
-	}
 });
-Geo.CodingProvider.Nominatim.available = function() {
+Geo.CodeProvider.Nominatim.available = Geo.RevCodeProvider.Nominatim.available = function() {
 	return true;
 };
 
 // Flickr Geocoding Provider ===================================================
-Geo.CodingProvider.Flickr = Geo.CodingProvider.Base.extend({
-	url: 'http://api.flickr.com/services/rest/',
+Geo.CodeProvider.Flickr = Geo.CodingProvider.Base.extend({
+	url:    'http://api.flickr.com/services/rest/',
+	params: {format: 'json'},
+	cbname: 'jsoncallback',
 	
-	geocode: function(p, callback) {
-		var _this = this;
-		var params = {
-			method: 'flickr.places.findByLatLon',
-			lat: p.coords.latitude,
-			lon: p.coords.longitude,
-			format: 'json',
-			api_key: Geo.CodingProvider.Flickr.apiKey
-		};
-		
-		JSONP.get(this.url, params, function(results) {
-			if (results && results.places && results.places.place.length > 0)
-				_this.successResponse(results, p, callback);
-			else
-				_this.emptyResponse(callback);
-		}, function() {
-			_this.errorResponse(callback);
-		}, 'jsoncallback');
+	init: function() {
+		this.params.api_key = Geo.CodeProvider.Flickr.apiKey;
 	},
 	
-	setAddress: function(position, data) {
-		position.address.formatted = data.places.place[0].name;
-		position.address.details   = data.places.place[0];
+	geocode: function(p, callback) {
+		this._jsonp(p, callback, {
+			method : 'flickr.places.find',
+			query  : encodeURIComponent(p.address.formatted)
+		});
+	},
+	
+	isResultOk: function(result) {
+		return (result && result.places && result.places.place.length > 0);
+	},
+	
+	setResult: function(position, data) {
+		if (data.places.place[0].name)
+			position.merge({formatted: data.places.place[0].name, details: data.places.place[0]});
+		else
+			position.merge(data.places.place[0]);
 	}
 });
-Geo.CodingProvider.Flickr.available = function() {
+Geo.RevCodeProvider.Flickr = Geo.CodeProvider.Flickr.extend({
+	geocode: function(p, callback) {
+		this._jsonp(p, callback, {
+			method : 'flickr.places.findByLatLon',
+			lat    : p.coords.latitude,
+			lon    : p.coords.longitude
+		});
+	}
+});
+Geo.CodeProvider.Flickr.available = Geo.RevCodeProvider.Flickr.available = function() {
 	return true;
 };
-Geo.CodingProvider.Flickr.apiKey = '';
+Geo.CodeProvider.Flickr.apiKey = '';
 
 // =============================================================================
 // GeoLocation Providers
@@ -354,9 +398,9 @@ Geo.LocationProvider.Base = Class.extend({
 	lastPos: null,
 	
 	getCurrentPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		this.provider.getCurrentPosition(function(p) {
-			successCallback(_this.parseResult(p));
+			successCallback(self.parseResult(p));
 		}, errorCallback, options);
 	},
 	
@@ -366,9 +410,9 @@ Geo.LocationProvider.Base = Class.extend({
 	
 	// W3C implementation of position watcher
 	_watchPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		this.provider.watchPosition(function(p) {
-			successCallback(_this.parseResult(p));
+			successCallback(self.parseResult(p));
 		}, errorCallback, options);
 	},
 	
@@ -378,11 +422,11 @@ Geo.LocationProvider.Base = Class.extend({
 	
 	// Alternative implementation of position watcher (Default)
 	watchPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		this.positionWatcher(successCallback, errorCallback, options);
 		
 		return setInterval(function() {
-			_this.positionWatcher(successCallback, errorCallback, options);
+			self.positionWatcher(successCallback, errorCallback, options);
 		}, 1000);
 	},
 	
@@ -391,11 +435,11 @@ Geo.LocationProvider.Base = Class.extend({
 	},
 	
 	positionWatcher: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		this.getCurrentPosition(function(p) {
-			if (!p.equals(_this.lastPos))
+			if (!p.equals(self.lastPos))
 				successCallback(p);
-			_this.lastPos = p;
+			self.lastPos = p;
 		}, errorCallback, options);
 	}
 });
@@ -445,7 +489,7 @@ Geo.LocationProvider.Bondi.available = function() {
 // Mojo Provider ===============================================================
 Geo.LocationProvider.Mojo = Geo.LocationProvider.Base.extend({
 	getCurrentPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
         var parameters = {};
         if (options) {
             if (options.enableHighAccuracy && options.enableHighAccuracy == true)
@@ -468,10 +512,10 @@ Geo.LocationProvider.Mojo = Geo.LocationProvider.Base.extend({
         	method: "getCurrentPosition",
             parameters: parameters,
             onSuccess: function(p) {
-            	successCallback(_this.parseResult(p));
+            	successCallback(self.parseResult(p));
             },
             onFailure: function(e) {
-            	errorCallback(_this.parseError(e));
+            	errorCallback(self.parseError(e));
             }
         });
   	},
@@ -498,13 +542,13 @@ Geo.LocationProvider.Nokia = Geo.LocationProvider.Base.extend({
 	},
 	
 	getCurrentPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		
         function callback(transId, eventCode, result) {
         	if (eventCode == 4)
         		errorCallback({code: 2, message: "Position unavailable"});
         	else {
-                successCallback(_this.parseResult(result));
+                successCallback(self.parseResult(result));
             }
         }
         
@@ -623,13 +667,13 @@ Geo.LocationProvider.BlackBerry.available = function() {
 // IP Base Provider ============================================================
 Geo.LocationProvider.IPBase = Geo.LocationProvider.Base.extend({
 	url: null,
-	params: null,
+	params: {},
 	cbname: null,
 	getCurrentPosition: function(successCallback, errorCallback, options) {
-		var _this = this;
+		var self = this;
 		
 		JSONP.get(this.url, this.params, function(p) {
-			successCallback(_this.parseResult(p));
+			successCallback(self.parseResult(p));
 		}, function() {
 				errorCallback({code: 3, message: "Timeout"});
 		}, this.cbname);
@@ -639,12 +683,39 @@ Geo.LocationProvider.IPBase = Geo.LocationProvider.Base.extend({
 			formatted: p.city + ', ' + p.region_name + ' - ' + p.country_name,
 			details: p
 		});
+	},
+	
+	geocode: function(p, callback) {
+		this._geocode(p, callback);
+	},
+	
+	_geocode: function(p, callback) {
+		var self = this;
+		this.params.ip = p.ip;
+		this.getCurrentPosition(function(result) {
+			self.setResult(p, result);
+			if (callback) callback(result);
+		}, function() {
+			if (callback) callback({code: 3, message: "Timeout"});
+		});
+	},
+	
+	setResult: function(position, data) {
+		position.merge({
+			formatted: data.address.formatted,
+			details: data.address.details
+		});
+		position.merge(data.address.details);
 	}
 });
 
 // FreeGeoIp Provider ==========================================================
 Geo.LocationProvider.FreeGeoIp = Geo.LocationProvider.IPBase.extend({
-	url: 'http://freegeoip.net/json/'
+	url: 'http://freegeoip.net/json/',
+	geocode: function(p, callback) {
+		this.url += p.ip;
+		this._geocode(p, callback);
+	},
 });
 Geo.LocationProvider.FreeGeoIp.available = function() {
 	return true;
@@ -667,10 +738,22 @@ Geo.LocationProvider.GeoPlugin = Geo.LocationProvider.IPBase.extend({
 	parseResult: function(p) {
 		return new Geo.Position({
 			formatted: p.geoplugin_city + ', ' + p.geoplugin_regionName + ' - ' + p.geoplugin_countryName,
-			details: p
+			details: (function() {
+				var obj = {};
+				for (attr in p)
+					obj[attr.replace("geoplugin_", "")] = p[attr];
+				return obj;
+			})()
 		});
 	}
 });
 Geo.LocationProvider.GeoPlugin.available = function() {
 	return true;
+};
+
+// Register the ip providers as geocoders
+Geo.IpCodeProvider = {
+	FreeGeoIp	: Geo.LocationProvider.FreeGeoIp,
+	GeoIpPidgets: Geo.LocationProvider.GeoIpPidgets,
+	GeoPlugin	: Geo.LocationProvider.GeoPlugin
 };
