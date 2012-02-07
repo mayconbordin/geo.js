@@ -341,7 +341,7 @@ Geo.RevCodeProvider.Nominatim = Geo.CodeProvider.Nominatim.extend({
 			zoom: '18',
 			addressdetails: '1'
 		});
-	},
+	}
 });
 Geo.CodeProvider.Nominatim.available = Geo.RevCodeProvider.Nominatim.available = function() {
 	return true;
@@ -715,7 +715,7 @@ Geo.LocationProvider.FreeGeoIp = Geo.LocationProvider.IPBase.extend({
 	geocode: function(p, callback) {
 		this.url += p.ip;
 		this._geocode(p, callback);
-	},
+	}
 });
 Geo.LocationProvider.FreeGeoIp.available = function() {
 	return true;
