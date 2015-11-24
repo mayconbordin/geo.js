@@ -1,0 +1,25 @@
+{
+  "name": "geo.js",
+  "homepage": "https://github.com/mayconbordin/geo.js",
+  "authors": [
+    "Maycon Bordin <mayconbordin@gmail.com>"
+  ],
+  "description": "A flexible Geolocation and Geocoding (pure) JavaScript library",
+  "main": [
+    "src/util.js",
+    "src/geo.js"
+  ],
+  "keywords": [
+    "geolocation",
+    "vanillajs",
+    "geocoding"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
