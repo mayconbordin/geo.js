@@ -174,7 +174,8 @@ Geo.IPProvider.Base = Class.extend({
 	}
 });
 Geo.IPProvider.JSONIP = Geo.IPProvider.Base.extend({
-	url: 'http://jsonip.appspot.com/'
+	url: 'http://jsonip.com/'
+	//url: 'http://jsonip.appspot.com/'
 });
 
 // =============================================================================
